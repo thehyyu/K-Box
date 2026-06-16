@@ -76,8 +76,25 @@ K-Box/
 ### 步驟 1：安裝 Python
 * 請至 [Python 官方網站](https://www.python.org/) 下載並安裝 Python 3.10 或更新版本（安裝時請務必勾選 **"Add Python to PATH"**）。
 
-### 步驟 2：下載並解壓專案
-* 將本專案（`K-Box`）下載或 Git Clone 到電腦中。
+### 步驟 2：下載與存放專案 (建議放置於 C:\K-Box)
+
+#### 📂 程式建議存放路徑：
+* **推薦路徑**：**`C:\K-Box`** 或 **`C:\Users\您的用戶名\K-Box`**。
+* **避免路徑**：**切勿存放在「桌面」或「文件」等已開啟 OneDrive 同步的目錄**。OneDrive 的實時上傳鎖定會干擾 Python 資料庫 (`library.json`) 與 FFmpeg 轉檔寫入，導致程式讀寫衝突。
+
+#### 📥 Windows 下載步驟：
+* **方式 A：直接下載 ZIP 壓縮檔 (免安裝 Git - 推薦給爸媽的電腦)**
+  1. 開啟瀏覽器前往您的 GitHub 專案頁面：`https://github.com/thehyyu/K-Box`
+  2. 點擊綠色的 **`<> Code`** 按鈕，然後點選 **`Download ZIP`**。
+  3. 下載完成後，在「下載」資料夾中找到 `K-Box-main.zip`。
+  4. 對其點擊右鍵，選擇 **`解壓縮全部...`**。
+  5. 將解壓後的目標路徑設為 **`C:\K-Box`**，然後點選解壓縮。
+* **方式 B：使用 Git Clone (適合開發者)**
+  1. 在 Windows 筆電上安裝 Git。
+  2. 開啟 命令提示字元 (cmd) 或 PowerShell，執行：
+     ```cmd
+     git clone https://github.com/thehyyu/K-Box.git C:\K-Box
+     ```
 
 ### 步驟 3：安裝依賴套件 (venv)
 在專案根目錄下打開命令提示字元 (cmd) 並執行：
