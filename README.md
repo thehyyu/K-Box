@@ -43,7 +43,7 @@ K-Box/
 ├── tests/                  # 16 個自動化 Unit / Integration 測試
 ├── requirements.txt        # python 相容套件
 ├── start_kbox.sh           # macOS 快速啟動腳本 (測試用)
-└── 啟動K-Box.bat            # Windows 一鍵啟動腳本 (爸媽用)
+└── start_kbox.bat           # Windows 一鍵啟動腳本 (爸媽用)
 ```
 
 ---
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 
 ## 🚀 系統啟動方式
 
-* **Windows (爸媽使用)**：直接點兩下執行根目錄底下的 **`啟動K-Box.bat`**。
+* **Windows (爸媽使用)**：直接點兩下執行根目錄底下的 **`start_kbox.bat`**。
 * **macOS (子女測試)**：在終端機中執行 `./start_kbox.sh`。
 
 啟動後，系統會自動在背景跑起後端，並呼叫您的預設瀏覽器開啟 `http://localhost:8080/` 點歌控制台。

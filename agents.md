@@ -40,7 +40,7 @@ K-Box/
 │   ├── style.css           # 專屬 CSS（無 Tailwind，純 CSS 設計系統）
 │   └── app.js              # Vanilla JS 狀態管理器與 API 呼叫器
 ├── requirements.txt        # python 相容套件
-└── 啟動K-Box.bat            # Windows 一鍵啟動腳本
+└── start_kbox.bat           # Windows 一鍵啟動腳本
 ```
 
 ---
@@ -84,4 +84,4 @@ K-Box/
 - [x] 建立 `frontend/style.css`：設計大字體、簡潔高對比度且具質感的玻璃擬物化風格 (Vanilla CSS)
 - [x] 建立 `frontend/index.html`：整合建庫模式、整理模式、匯出模式三大頁面
 - [x] 建立 `frontend/app.js`：實作資料綁定與實時 API 更新、LocalStorage 暫存區
-- [x] 撰寫 Windows 啟動腳本 `啟動K-Box.bat`
+- [x] 撰寫 Windows 啟動腳本 `start_kbox.bat`
