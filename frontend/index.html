@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Box 卡拉OK伴唱整理系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="logo-container">
+            <span class="logo-icon">💿</span>
+            <span class="logo-text">K-Box</span>
+        </div>
+        
+        <ul class="nav-links">
+            <li class="nav-item active" onclick="switchTab('import-tab', this)">
+                <span class="nav-icon">📥</span>
+                <span>光碟選歌建庫</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('library-tab', this)">
+                <span class="nav-icon">📚</span>
+                <span>精選曲庫整理</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('export-tab', this)">
+                <span class="nav-icon">🔌</span>
+                <span>隨身碟同步匯出</span>
+            </li>
+        </ul>
+        
+        <!-- System Status Bar -->
+        <div class="sys-indicator" id="sys-status-bar">
+            <div class="sys-dot error" id="sys-dot"></div>
+            <span id="sys-text">正在偵測系統環境...</span>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+
+        <!-- TAB 1: IMPORT TAB (CD IMPORT) -->
+        <section id="import-tab" class="tab-panel active">
+            <header class="panel-header">
+                <h2>💿 光碟選歌建庫</h2>
+                <p>放入伴唱 CD/VCD/DVD 光碟，勾選您喜歡的歌曲進行轉檔建庫（長輩免打字：歌名可先留空，事後由子女補齊）。</p>
+            </header>
+            
+            <div class="row">
+                <!-- Left Column: Drive Scan Controls -->
+                <div class="col" style="flex: 2;">
+                    <div class="card">
+                        <div class="card-title">1. 掃描光碟機</div>
+                        <div class="btn-group" style="margin-bottom: 20px;">
+                            <div class="form-group" style="flex-grow: 1; margin-bottom: 0;">
+                                <select class="form-control" id="drive-select">
+                                    <option value="">-- 請選擇光碟槽 --</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" onclick="detectDrives()">🔄 重新整理</button>
+                            <button class="btn btn-primary" onclick="scanDrive()">🔍 掃描光碟</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tracks Listing Card -->
+                    <div class="card" id="tracks-card" style="display: none;">
+                        <div class="card-title" id="tracks-card-title">2. 選擇歌曲並命名</div>
+                        
+                        <div class="table-container" style="max-height: 500px; margin-bottom: 20px;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">
+                                            <input type="checkbox" class="custom-checkbox" id="select-all-tracks" onchange="toggleSelectAllTracks(this)">
+                                        </th>
+                                        <th style="width: 80px;">軌道</th>
+                                        <th>原始檔案資訊</th>
+                                        <th>格式</th>
+                                        <th>請輸入： 歌名 - 歌手 (日語歌曲支援)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tracks-table-body">
+                                    <!-- Dynamic rows go here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="btn-group">
+                            <button class="btn btn-primary" style="flex-grow: 1; padding: 20px;" onclick="importSelectedTracks()">
+                                🚀 開始轉檔已選歌曲
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Column: Transcode Queue Monitor -->
+                <div class="col" style="flex: 1.2;">
+                    <div class="card">
+                        <div class="card-title">轉檔任務佇列</div>
+                        
+                        <div id="queue-empty-state" style="text-align: center; padding: 30px 0; color: var(--text-muted);">
+                            <span style="font-size: 48px; display: block; margin-bottom: 10px;">⏳</span>
+                            目前無轉檔任務在進行中
+                        </div>
+                        
+                        <div id="queue-monitor" style="display: none;">
+                            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                                <div style="font-weight: bold; margin-bottom: 8px;" id="active-track-name">正在轉檔: --</div>
+                                <div style="display: flex; justify-content: space-between; font-size: var(--font-size-small); color: var(--text-muted); margin-bottom: 5px;">
+                                    <span id="active-track-speed">速度: 0.0x</span>
+                                    <span id="active-track-percent">0%</span>
+                                </div>
+                                <div class="progress-container">
+                                    <div class="progress-bar" id="active-track-progress-bar"></div>
+                                    <div class="progress-text" id="active-track-progress-text">0%</div>
+                                </div>
+                            </div>
+                            
+                            <div style="font-size: var(--font-size-small); color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 15px;">
+                                <span id="queue-summary-active">待處理: 0 首</span>
+                                <span id="queue-summary-completed">已完成: 0 首</span>
+                                <span id="queue-summary-failed">失敗: 0 首</span>
+                            </div>
+                            
+                            <div id="queue-list" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                                <!-- Dynamic queue list items -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: LIBRARY TAB (LIBRARY MANAGE) -->
+        <section id="library-tab" class="tab-panel">
+            <header class="panel-header">
+                <h2>📚 精選曲庫整理</h2>
+                <p>管理行動硬碟（`K-Box_Library/`）中已收錄的所有歌曲，子女可在此快速補打留空歌名的歌曲。</p>
+            </header>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                    <div class="btn-group">
+                        <button class="btn btn-secondary active" id="filter-all-btn" onclick="filterLibrary('all')">全部歌曲</button>
+                        <button class="btn btn-secondary" id="filter-incomplete-btn" onclick="filterLibrary('incomplete')">
+                            ⚠️ 待補檔歌曲 (<span id="incomplete-count">0</span>)
+                        </button>
+                    </div>
+                    <div style="font-size: var(--font-size-small); color: var(--text-muted);">
+                        曲庫總計: <span id="library-total-count">0</span> 首歌曲
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">狀態</th>
+                                <th style="width: 200px;">匯入時間</th>
+                                <th>歌名</th>
+                                <th>歌手 (Artist)</th>
+                                <th style="width: 150px;">時長</th>
+                                <th style="width: 200px; text-align: center;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="library-table-body">
+                            <!-- Dynamic library items go here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: EXPORT TAB (USB EXPORT) -->
+        <section id="export-tab" class="tab-panel">
+            <header class="panel-header">
+                <h2>🔌 隨身碟同步匯出</h2>
+                <p>偵測隨身碟，選擇要攜帶出門的歌。系統會自動進行依序寫入與修改時間戳，以相容卡拉OK播放機的排序。</p>
+            </header>
+            
+            <div class="row">
+                <!-- Left: USB Select & Sync Settings -->
+                <div class="col" style="flex: 1.2;">
+                    <div class="card">
+                        <div class="card-title">1. 選擇隨身碟</div>
+                        <div class="btn-group" style="margin-bottom: 25px;">
+                            <div class="form-group" style="flex-grow: 1; margin-bottom: 0;">
+                                <select class="form-control" id="usb-select">
+                                    <option value="">-- 請選擇隨身碟 --</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" onclick="detectUSBs()">🔄 重新整理</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-title">2. 同步設定</div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">命名與點歌規則</label>
+                            <select class="form-control" id="naming-strategy-select">
+                                <option value="ktv_number">(推薦) 點歌編號型 (例如: 1001 - 歌名 - 歌手.mp4)</option>
+                                <option value="artist_title">歌手歌名型 (例如: 歌手 - 歌名.mp4)</option>
+                                <option value="flat_title">純歌名型 (例如: 歌名.mp4)</option>
+                            </select>
+                            <p style="font-size: var(--font-size-small); color: var(--text-muted); margin-top: 8px;">
+                                💡 選用「點歌編號型」，生成的點歌本前方的 4 位數代碼即為遙控器點歌號碼。
+                            </p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">寫入排序策略</label>
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="radio" name="sync-type" value="delta" checked style="width: 20px; height: 20px;">
+                                    <span>差額同步 (只複製新增/修改的歌曲，速度快)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="radio" name="sync-type" value="deep" style="width: 20px; height: 20px;">
+                                    <span style="color: #ffb199; font-weight: bold;">
+                                        深度重整 (清空隨身碟 K-Box 資料夾重新寫入，保證 DVD 播放機排序正確)
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: Songs select list & Copy status -->
+                <div class="col" style="flex: 2;">
+                    <div class="card">
+                        <div class="card-title">3. 選擇攜帶歌單</div>
+                        
+                        <div class="table-container" style="max-height: 400px; margin-bottom: 20px;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">
+                                            <input type="checkbox" class="custom-checkbox" id="select-all-export" onchange="toggleSelectAllExport(this)">
+                                        </th>
+                                        <th>歌名</th>
+                                        <th>歌手</th>
+                                        <th>匯入專輯識別</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="export-table-body">
+                                    <!-- Dynamic export items go here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="btn-group" style="margin-bottom: 20px;">
+                            <button class="btn btn-primary" style="flex-grow: 1;" onclick="startUSBSync()">
+                                🚀 開始同步到隨身碟
+                            </button>
+                            <button class="btn btn-secondary" style="flex-grow: 0.5;" onclick="openPrintableSongbook()">
+                                🖨️ 開啟列印歌本
+                            </button>
+                        </div>
+                        
+                        <!-- USB Copy Progress monitor -->
+                        <div id="export-monitor" style="display: none; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+                            <div style="font-weight: bold; margin-bottom: 8px;" id="export-current-file">正在寫入: --</div>
+                            <div style="display: flex; justify-content: space-between; font-size: var(--font-size-small); color: var(--text-muted); margin-bottom: 5px;">
+                                <span id="export-summary-text">複製中 (0 / 0)</span>
+                                <span id="export-percent-text">0%</span>
+                            </div>
+                            <div class="progress-container">
+                                <div class="progress-bar" id="export-progress-bar" style="background: linear-gradient(90deg, #ff0844 0%, #ffb199 100%);"></div>
+                                <div class="progress-text" id="export-progress-text">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
