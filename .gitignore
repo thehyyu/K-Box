@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+
+# Local Library (if stored inside workspace)
+K-Box_Library/
+K-Box_Songs/
+
+# IDE / System files
+.DS_Store
+.vscode/
+.idea/
+*.tmp
+*.log
