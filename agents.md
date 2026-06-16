@@ -64,21 +64,21 @@ K-Box/
 ## 📝 實作待辦清單 (Todo List)
 
 ### 1. 專案基礎骨架
-- [ ] 撰寫 `requirements.txt`
-- [ ] 建立 `backend/config.py` 設定檔管理與 FFmpeg 自動探針
-- [ ] 建立 `backend/database.py` 支援 UTF-8 的 JSON 資料庫
+- [x] 撰寫 `requirements.txt`
+- [x] 建立 `backend/config.py` 設定檔管理與 FFmpeg 自動探針
+- [x] 建立 `backend/database.py` 支援 UTF-8 的 JSON 資料庫
 
 ### 2. 【第一階段】掃描與轉檔核心 (Scanner & Converter)
-- [ ] 實作 `backend/scanner.py`（Windows 光碟偵測、DVD 章節 `ffprobe` 解析）
-- [ ] 實作 `backend/converter.py`（背景 FFmpeg 轉檔任務隊列、進度條解析器）
-- [ ] 實作建庫模式對應的 API 路由 (`/api/scan`, `/api/import`, `/api/import/status`)
+- [x] 實作 `backend/scanner.py`（Windows 光碟偵測、DVD 章節 `ffprobe` 解析）
+- [x] 實作 `backend/converter.py`（背景 FFmpeg 轉檔任務隊列、進度條解析器）
+- [x] 實作建庫模式對應的 API 路由 (`/api/scan`, `/api/import`, `/api/import/status`)
 
 ### 3. 【第二階段】隨身碟同步與重整核心 (Exporter)
-- [ ] 實作 `backend/exporter.py`：Windows USB 隨身碟掃描、既有舊歌分類
-- [ ] 實作 USB 寫入邏輯：**單執行緒依序複製**、**`os.utime()` 修改時間戳**
-- [ ] 實作 USB「深度重整（清空專屬資料夾後重灌）」機制
-- [ ] 實作 HTML 雙欄 KTV 點歌本生成器（支援中日雙語字型）
-- [ ] 實作匯出模式對應的 API 路由 (`/api/usb-drives`, `/api/export`, `/api/export/status`, `/songbook`)
+- [x] 實作 `backend/exporter.py`：Windows USB 隨身碟掃描、既有舊歌分類
+- [x] 實作 USB 寫入邏輯：**單執行緒依序複製**、**`os.utime()` 修改時間戳**
+- [x] 實作 USB「深度重整（清空隨身碟專屬目錄並循序重寫）」機制
+- [x] 實作 HTML 雙欄 KTV 點歌本生成器（支援中日雙語字型）
+- [x] 實作匯出模式對應的 API 路由 (`/api/usb-drives`, `/api/export`, `/api/export/status`, `/songbook`)
 
 ### 4. 前端 UI 實作
 - [ ] 建立 `frontend/style.css`：設計大字體、簡潔高對比度且具質感的玻璃擬物化風格 (Vanilla CSS)
