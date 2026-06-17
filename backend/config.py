@@ -28,7 +28,8 @@ def detect_library_dir() -> Path:
         p.mkdir(parents=True, exist_ok=True)
         return p
 
-    # 2. Check all active drive partitions for an existing and writable "K-Box_Library" directory
+    # 2. Check all active drive partitions for an EXISTING and writable "K-Box_Library" directory.
+    # This ensures that if the external hard drive is plugged in, we use it.
     try:
         import ctypes
         for partition in psutil.disk_partitions(all=False):
@@ -50,31 +51,9 @@ def detect_library_dir() -> Path:
     except Exception as e:
         print(f"Error scanning partitions for existing library: {e}")
 
-    # 3. If no existing library found, look for any writable removable drive to initialize
-    try:
-        import ctypes
-        for partition in psutil.disk_partitions(all=False):
-            if "removable" in partition.opts.lower() and partition.fstype != "":
-                mount_point = partition.mountpoint
-                
-                # Windows specific: Skip CD-ROM drives
-                if os.name == "nt":
-                    drive_type = ctypes.windll.kernel32.GetDriveTypeW(mount_point)
-                    if drive_type == 5:
-                        continue
-
-                candidate = Path(mount_point) / "K-Box_Library"
-                if is_writable(Path(mount_point)):
-                    try:
-                        candidate.mkdir(parents=True, exist_ok=True)
-                        if is_writable(candidate):
-                            return candidate
-                    except Exception:
-                        continue
-    except Exception as e:
-        print(f"Error scanning partitions for new library: {e}")
-
-    # 4. Fallback: User's home directory (always writable)
+    # 3. Fallback: User's home directory (always writable and local on C: drive).
+    # We do NOT automatically create a new library on random removable USB drives
+    # to avoid hijacking the export destination.
     fallback = Path.home() / "K-Box_Library"
     fallback.mkdir(parents=True, exist_ok=True)
     return fallback
