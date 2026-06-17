@@ -53,50 +53,80 @@ def detect_optical_drives() -> List[str]:
 def probe_dvd_chapters(vob_path: str) -> List[dict]:
     """
     Uses ffprobe to extract chapter markers from a VOB or composite media file.
+    Supports semicolon-separated paths (e.g. path1;path2) using the concat demuxer.
     Returns a list of chapters with 'index', 'start_time', 'end_time', and 'duration'.
     """
-    cmd = [
-        FFPROBE_PATH,
-        "-v", "error",
-        "-show_chapters",
-        "-print_format", "json",
-        vob_path
-    ]
-    try:
-        # Hide command window on Windows
-        startupinfo = None
-        if os.name == 'nt':
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
-        result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
-            encoding="utf-8", 
-            errors="replace", 
-            check=True, 
-            startupinfo=startupinfo
-        )
-        data = json.loads(result.stdout)
+    import tempfile
+    temp_list_path = None
+    if ";" in vob_path:
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                for p in vob_path.split(";"):
+                    f.write(f"file '{Path(p).resolve().as_posix()}'\n")
+                temp_list_path = f.name
+            cmd = [
+                FFPROBE_PATH,
+                "-v", "error",
+                "-show_chapters",
+                "-print_format", "json",
+                "-f", "concat",
+                "-safe", "0",
+                temp_list_path
+            ]
+        except Exception as e:
+            print(f"Error preparing concat file for probe: {e}")
+            return []
+    else:
+        cmd = [
+            FFPROBE_PATH,
+            "-v", "error",
+            "-show_chapters",
+            "-print_format", "json",
+            vob_path
+        ]
         
-        chapters = []
-        for index, ch in enumerate(data.get("chapters", [])):
-            start_time = float(ch.get("start_time", 0.0))
-            end_time = float(ch.get("end_time", 0.0))
-            duration = end_time - start_time
-            
-            # Skip very short chapters (e.g. less than 10 seconds, usually transition/menu chunks)
-            if duration < 10.0:
-                continue
+    try:
+        try:
+            # Hide command window on Windows
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 
-            chapters.append({
-                "index": index + 1,
-                "start_time": start_time,
-                "end_time": end_time,
-                "duration": duration
-            })
-        return chapters
+            result = subprocess.run(
+                cmd, 
+                capture_output=True, 
+                text=True, 
+                encoding="utf-8", 
+                errors="replace", 
+                check=True, 
+                startupinfo=startupinfo
+            )
+            data = json.loads(result.stdout)
+            
+            chapters = []
+            for index, ch in enumerate(data.get("chapters", [])):
+                start_time = float(ch.get("start_time", 0.0))
+                end_time = float(ch.get("end_time", 0.0))
+                duration = end_time - start_time
+                
+                # Skip very short chapters (e.g. less than 10 seconds, usually transition/menu chunks)
+                if duration < 10.0:
+                    continue
+                    
+                chapters.append({
+                    "index": index + 1,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration": duration
+                })
+            return chapters
+        finally:
+            if temp_list_path and os.path.exists(temp_list_path):
+                try:
+                    os.unlink(temp_list_path)
+                except Exception:
+                    pass
     except Exception as e:
         print(f"Error probing chapters for {vob_path}: {e}")
         return []
@@ -166,27 +196,25 @@ def scan_drive_tracks(drive_path: str) -> List[dict]:
                 vts_groups.setdefault(group_name, []).append(file)
 
         for group_name, files in sorted(vts_groups.items()):
-            # If a single group has multiple parts (e.g. VTS_01_1, VTS_01_2...) and is very large,
-            # it is likely a single title containing multiple chapters (songs).
-            # Let's check for chapters using ffprobe on the first file or a concat stream.
-            if len(files) > 1:
-                # Continuous title split across 1GB VOB files. We probe the first one or combine.
-                # Probing the first one usually reveals chapters, but we can probe the group's first file.
-                lead_file = files[0]
-                chapters = probe_dvd_chapters(str(lead_file))
-                if chapters:
-                    for ch in chapters:
-                        tracks.append({
-                            "original_path": str(lead_file),  # The player or ffmpeg handles reading this VOB
-                            "filename": f"{lead_file.name} (Ch {ch['index']})",
-                            "file_size": lead_file.stat().st_size,
-                            "track_number": len(tracks) + 1,
-                            "type": "DVD_CHAPTER",
-                            "chapter_index": ch["index"],
-                            "start_time": ch["start_time"],
-                            "end_time": ch["end_time"]
-                        })
-                    continue # Handled via chapter splitting
+            sorted_files = sorted(files)
+            # Semicolon-separated paths representing the concatenated title set
+            concat_path = ";".join(str(f) for f in sorted_files)
+            
+            # Check for chapters across the entire concatenated VTS group
+            chapters = probe_dvd_chapters(concat_path)
+            if chapters:
+                for ch in chapters:
+                    tracks.append({
+                        "original_path": concat_path,
+                        "filename": f"{group_name} (章節 {ch['index']})",
+                        "file_size": sum(f.stat().st_size for f in sorted_files),
+                        "track_number": len(tracks) + 1,
+                        "type": "DVD_CHAPTER",
+                        "chapter_index": ch["index"],
+                        "start_time": ch["start_time"],
+                        "end_time": ch["end_time"]
+                    })
+                continue # Handled via chapter splitting
 
             # Otherwise, treat each VOB file as an individual track (Scenario A: one song per VTS file)
             for file in sorted(files):

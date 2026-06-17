@@ -20,13 +20,34 @@ status_lock = threading.Lock()
 
 def get_media_duration(file_path: str) -> float:
     """Uses ffprobe to query total duration of a media file in seconds."""
-    cmd = [
-        FFPROBE_PATH,
-        "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        file_path
-    ]
+    import tempfile
+    temp_list_path = None
+    if ";" in file_path:
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                for p in file_path.split(";"):
+                    f.write(f"file '{Path(p).resolve().as_posix()}'\n")
+                temp_list_path = f.name
+            cmd = [
+                FFPROBE_PATH,
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-f", "concat",
+                "-safe", "0",
+                temp_list_path
+            ]
+        except Exception as e:
+            print(f"Error preparing concat file for duration probe: {e}")
+            return 0.0
+    else:
+        cmd = [
+            FFPROBE_PATH,
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            file_path
+        ]
     try:
         startupinfo = None
         if os.name == 'nt':
@@ -46,12 +67,19 @@ def get_media_duration(file_path: str) -> float:
     except Exception as e:
         print(f"Error reading duration for {file_path}: {e}")
         return 0.0
+    finally:
+        if temp_list_path and os.path.exists(temp_list_path):
+            try:
+                os.unlink(temp_list_path)
+            except Exception:
+                pass
 
 def run_transcode(song_id: str, src_path: str, dest_path: str, start_time: Optional[float] = None, end_time: Optional[float] = None) -> bool:
     """
     Spawns FFmpeg to convert the source file to H.264/AAC 480p MP4.
     If start_time and end_time are provided, FFmpeg slices that specific chapter duration.
     """
+    import tempfile
     dest_path_obj = Path(dest_path)
     dest_path_obj.parent.mkdir(parents=True, exist_ok=True)
     
@@ -63,15 +91,37 @@ def run_transcode(song_id: str, src_path: str, dest_path: str, start_time: Optio
         if slice_duration <= 0.0:
             slice_duration = 240.0  # Fallback to 4 minutes
 
-    # Assemble FFmpeg command
-    cmd = [FFMPEG_PATH, "-y"]  # Overwrite target files
+    temp_list_path = None
     
-    # Input seek for fast segment slicing if chapter start time is specified
+    # Assemble FFmpeg command
+    if ";" in src_path:
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                for p in src_path.split(";"):
+                    f.write(f"file '{Path(p).resolve().as_posix()}'\n")
+                temp_list_path = f.name
+            cmd = [
+                FFMPEG_PATH,
+                "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", temp_list_path
+            ]
+        except Exception as e:
+            print(f"Error preparing concat file for transcode: {e}")
+            return False
+    else:
+        cmd = [
+            FFMPEG_PATH,
+            "-y",
+            "-i", src_path
+        ]
+        
+    # Accurate output seeking for segment slicing (placed AFTER input -i)
     if start_time is not None and slice_duration is not None:
         cmd.extend(["-ss", f"{start_time:.3f}", "-t", f"{slice_duration:.3f}"])
         
     cmd.extend([
-        "-i", src_path,
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "23",
@@ -83,52 +133,59 @@ def run_transcode(song_id: str, src_path: str, dest_path: str, start_time: Optio
     ])
     
     try:
-        # Hide command prompt window on Windows
-        startupinfo = None
-        if os.name == 'nt':
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,  # Redirect stderr to stdout to catch everything in one stream
-            text=True,
-            encoding="utf-8",
-            errors="replace",          # Replace invalid characters instead of raising UnicodeDecodeError
-            startupinfo=startupinfo
-        )
-        
-        time_pattern = re.compile(r"out_time_ms=(\d+)")
-        speed_pattern = re.compile(r"speed=\s*([\d\.]+)x")
-        
-        while True:
-            line = process.stdout.readline()
-            if not line:
-                break
+        try:
+            # Hide command prompt window on Windows
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 
-            # Parse progress timestamps
-            time_match = time_pattern.search(line)
-            if time_match:
-                try:
-                    time_us = int(time_match.group(1))
-                    curr_time_sec = time_us / 1000000.0
-                    progress = min(curr_time_sec / slice_duration, 0.99)  # Cap at 99% until complete
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Redirect stderr to stdout to catch everything in one stream
+                text=True,
+                encoding="utf-8",
+                errors="replace",          # Replace invalid characters instead of raising UnicodeDecodeError
+                startupinfo=startupinfo
+            )
+            
+            time_pattern = re.compile(r"out_time_ms=(\d+)")
+            speed_pattern = re.compile(r"speed=\s*([\d\.]+)x")
+            
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                    
+                # Parse progress timestamps
+                time_match = time_pattern.search(line)
+                if time_match:
+                    try:
+                        time_us = int(time_match.group(1))
+                        curr_time_sec = time_us / 1000000.0
+                        progress = min(curr_time_sec / slice_duration, 0.99)  # Cap at 99% until complete
+                        with status_lock:
+                            if song_id in job_status:
+                                job_status[song_id]["progress"] = progress
+                    except ValueError:
+                        pass
+                
+                # Parse transcode speeds
+                speed_match = speed_pattern.search(line)
+                if speed_match:
                     with status_lock:
                         if song_id in job_status:
-                            job_status[song_id]["progress"] = progress
-                except ValueError:
+                            job_status[song_id]["speed"] = speed_match.group(1) + "x"
+    
+            process.wait()
+            return process.returncode == 0
+        finally:
+            if temp_list_path and os.path.exists(temp_list_path):
+                try:
+                    os.unlink(temp_list_path)
+                except Exception:
                     pass
-            
-            # Parse transcode speeds
-            speed_match = speed_pattern.search(line)
-            if speed_match:
-                with status_lock:
-                    if song_id in job_status:
-                        job_status[song_id]["speed"] = speed_match.group(1) + "x"
-
-        process.wait()
-        return process.returncode == 0
         
     except Exception as e:
         print(f"FFmpeg transcode execution error for {src_path}: {e}")

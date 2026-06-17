@@ -184,15 +184,45 @@ class Database:
         return updated
 
     def rename_song(self, song_id: str, title: str, artist: str) -> bool:
-        """Renames a song and updates its title and artist info."""
+        """Renames a song, updates its title/artist info, and physically renames the file on disk."""
+        import re
         with self.lock:
             data = self._load_data()
-            if song_id in data["songs"]:
-                data["songs"][song_id]["title"] = title.strip()
-                data["songs"][song_id]["artist"] = artist.strip()
-                self._save_data(data)
+            if song_id not in data["songs"]:
+                return False
                 
-        album_id = data["songs"][song_id].get("album_id")
+            song = data["songs"][song_id]
+            album_id = song.get("album_id")
+            track_num = song.get("track_number", 1)
+            old_rel_path = song.get("file_path")
+            
+            song["title"] = title.strip()
+            song["artist"] = artist.strip()
+            
+            if old_rel_path and album_id:
+                old_full_path = SONGS_DIR.parent / old_rel_path
+                clean_title = re.sub(r'[\\/*?:"<>|]', "", title.strip()).strip()
+                if not clean_title:
+                    clean_title = f"Track_{track_num:02d}"
+                dest_filename = f"T{track_num:02d}_{clean_title}.mp4"
+                new_rel_path = f"songs/{album_id}/{dest_filename}"
+                new_full_path = SONGS_DIR.parent / new_rel_path
+                
+                if old_full_path.exists() and old_full_path != new_full_path:
+                    try:
+                        new_full_path.parent.mkdir(parents=True, exist_ok=True)
+                        if new_full_path.exists():
+                            new_full_path.unlink()
+                        old_full_path.rename(new_full_path)
+                        song["file_path"] = new_rel_path
+                    except Exception as e:
+                        print(f"Error renaming physical file from {old_full_path} to {new_full_path}: {e}")
+                else:
+                    # Update file_path schema even if file hasn't been written yet
+                    song["file_path"] = new_rel_path
+                    
+            self._save_data(data)
+            
         if album_id:
             self.update_album_status(album_id)
         return True
