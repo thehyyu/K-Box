@@ -15,6 +15,10 @@ if not exist ".venv" (
     exit /b 1
 )
 
+REM Kill any stale processes running on Port 8080 to prevent conflicts and ensure code updates apply
+echo 0. Cleaning up stale server instances on Port 8080...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr 8080') do taskkill /F /PID %%a 2>nul
+
 REM Start FastAPI backend service
 echo 1. Starting K-Box Backend Server...
 start "K-Box Backend Server" cmd /c "call .venv\Scripts\activate && python -m uvicorn backend.main:app --host 127.0.0.1 --port 8080"
