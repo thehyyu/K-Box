@@ -133,3 +133,72 @@ def test_sequential_copy_and_utime(tmp_path):
             second_mtime = mock_utime.call_args_list[1][0][1][1]
             
             assert second_mtime == first_mtime + 1
+
+def test_export_to_root_vs_subfolder(tmp_path):
+    """Test both subfolder and root export targets, along with selective file-level cleaning."""
+    album_id = "CD_EXPORT_ROOT_TEST"
+    album_name = "Root Test Album"
+    
+    # Create mock source files
+    library_songs_dir = tmp_path / "library" / "songs" / album_id
+    library_songs_dir.mkdir(parents=True, exist_ok=True)
+    song_file = library_songs_dir / "T01_Song.mp4"
+    song_file.write_bytes(b"content")
+    
+    with patch("backend.exporter.SONGS_DIR", tmp_path / "library" / "songs"):
+        db.add_album(album_id, album_name)
+        db.add_or_update_song("song_root_test", {
+            "album_id": album_id,
+            "album_name": album_name,
+            "track_number": 1,
+            "title": "Song Title",
+            "artist": "Artist Name",
+            "file_path": f"songs/{album_id}/T01_Song.mp4",
+            "status": "completed"
+        })
+        
+        # 1. Test export to subfolder (export_to_root=False)
+        usb_dir_sub = tmp_path / "usb_mount_sub"
+        usb_dir_sub.mkdir()
+        
+        exporter.run_export_thread(
+            song_ids=["song_root_test"],
+            usb_path=str(usb_dir_sub),
+            wipe_first=True,
+            naming_strategy="ktv_number",
+            export_to_root=False
+        )
+        
+        # Should create subfolder K-Box_Songs
+        sub_folder = usb_dir_sub / "K-Box_Songs"
+        assert sub_folder.exists()
+        assert (sub_folder / "1001 - Song Title - Artist Name.mp4").exists()
+        
+        # 2. Test export to root (export_to_root=True)
+        usb_dir_root = tmp_path / "usb_mount_root"
+        usb_dir_root.mkdir()
+        
+        # Pre-populate unrelated file, a legacy folder, and an old K-Box file
+        unrelated_file = usb_dir_root / "my_holiday_photo.jpg"
+        unrelated_file.write_text("photo data")
+        
+        old_ktv_file = usb_dir_root / "1002 - Old Track.mp4"
+        old_ktv_file.write_text("old video")
+        
+        exporter.run_export_thread(
+            song_ids=["song_root_test"],
+            usb_path=str(usb_dir_root),
+            wipe_first=True,
+            naming_strategy="ktv_number",
+            export_to_root=True
+        )
+        
+        # The new track should be in the root directory directly
+        assert (usb_dir_root / "1001 - Song Title - Artist Name.mp4").exists()
+        
+        # The unrelated photo should still exist (sandbox safety)
+        assert unrelated_file.exists()
+        assert unrelated_file.read_text() == "photo data"
+        
+        # The old KTV code file should have been cleaned up
+        assert not old_ktv_file.exists()

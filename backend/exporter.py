@@ -99,7 +99,7 @@ def get_usb_drives() -> List[Dict[str, str]]:
                         
     return drives
 
-def run_export_thread(song_ids: List[str], usb_path: str, wipe_first: bool, naming_strategy: str):
+def run_export_thread(song_ids: List[str], usb_path: str, wipe_first: bool, naming_strategy: str, export_to_root: bool = True):
     """
     Background worker doing the sequential copying, sandboxed wiping, and mtime touch sequence.
     """
@@ -112,14 +112,49 @@ def run_export_thread(song_ids: List[str], usb_path: str, wipe_first: bool, nami
             export_status["error"] = f"隨身碟路徑 {usb_path} 不存在。"
         return
 
-    # Dedicated subfolder for K-Box songs (Safety Sandbox)
-    target_dir = usb_root / "K-Box_Songs"
+    # Target directory path based on user preference (Root vs Subfolder)
+    target_dir = usb_root if export_to_root else usb_root / "K-Box_Songs"
     
     try:
         if wipe_first:
-            # Safely wipe only our specific sandbox directory if it exists
-            if target_dir.exists():
-                shutil.rmtree(target_dir)
+            if export_to_root:
+                # Safe selective file-level wipe in the root directory
+                # We compile a list of names from our active database songs to target them specifically
+                db_songs = db.get_songs()
+                db_filenames = set()
+                for song in db_songs:
+                    artist = song.get("artist", "").strip()
+                    title = song.get("title", "").strip()
+                    if artist:
+                        db_filenames.add(f"{artist} - {title}.mp4".lower())
+                    db_filenames.add(f"{title}.mp4".lower())
+                
+                # Scan root directory for files to delete
+                for item in usb_root.iterdir():
+                    if item.is_file():
+                        # Delete if it matches KTV code (e.g. 1001 - Title.mp4)
+                        is_ktv_pattern = re.match(r'^\d{4} - .+\.mp4$', item.name, re.IGNORECASE)
+                        # Delete if it matches one of our DB song names
+                        is_db_name = item.name.lower() in db_filenames
+                        
+                        if is_ktv_pattern or is_db_name:
+                            try:
+                                item.unlink()
+                            except Exception as e:
+                                print(f"Failed to delete {item.name}: {e}")
+                
+                # Also delete the legacy folder K-Box_Songs if it exists to clean up
+                legacy_dir = usb_root / "K-Box_Songs"
+                if legacy_dir.exists() and legacy_dir.is_dir():
+                    try:
+                        shutil.rmtree(legacy_dir)
+                    except Exception:
+                        pass
+            else:
+                # Safely wipe only our specific sandbox directory if it exists
+                if target_dir.exists():
+                    shutil.rmtree(target_dir)
+                    
         target_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         with export_lock:
@@ -213,7 +248,7 @@ def run_export_thread(song_ids: List[str], usb_path: str, wipe_first: bool, nami
             export_status["progress"] = 1.0
             export_status["current_file"] = ""
 
-def start_export_task(song_ids: List[str], usb_path: str, wipe_first: bool, naming_strategy: str = "ktv_number") -> bool:
+def start_export_task(song_ids: List[str], usb_path: str, wipe_first: bool, naming_strategy: str = "ktv_number", export_to_root: bool = True) -> bool:
     """Spawns background thread copy worker."""
     global export_status
     with export_lock:
@@ -222,7 +257,7 @@ def start_export_task(song_ids: List[str], usb_path: str, wipe_first: bool, nami
             
     thread = threading.Thread(
         target=run_export_thread, 
-        args=(song_ids, usb_path, wipe_first, naming_strategy), 
+        args=(song_ids, usb_path, wipe_first, naming_strategy, export_to_root), 
         daemon=True
     )
     thread.start()

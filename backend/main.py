@@ -45,6 +45,7 @@ class ExportRequest(BaseModel):
     usb_path: str
     wipe_first: bool = False
     naming_strategy: str = "ktv_number"
+    export_to_root: bool = True
 
 class RenameSongRequest(BaseModel):
     title: str
@@ -161,7 +162,8 @@ def export_songs(request: ExportRequest):
         song_ids=request.song_ids,
         usb_path=request.usb_path,
         wipe_first=request.wipe_first,
-        naming_strategy=request.naming_strategy
+        naming_strategy=request.naming_strategy,
+        export_to_root=request.export_to_root
     )
     
     if not success:

@@ -620,9 +620,15 @@ async function startUSBSync() {
             break;
         }
     }
+    const exportToRoot = document.getElementById("export-root-checkbox").checked;
     
-    if (wipeFirst && !confirm("⚠️ 警告: 您選擇了【深度重整】隨身碟。\n這會清空隨身碟內的 K-Box_Songs 資料夾並重新循序寫入。\n請問要繼續嗎？")) {
-        return;
+    if (wipeFirst) {
+        const warningMsg = exportToRoot
+            ? "⚠️ 警告: 您選擇了【深度重整】隨身碟。\n這會清理隨身碟根目錄下所有符合 K-Box 命名規則的舊歌曲，但絕對不會刪除您的其他照片或文件。\n請問要繼續嗎？"
+            : "⚠️ 警告: 您選擇了【深度重整】隨身碟。\n這會清空隨身碟內的 K-Box_Songs 資料夾並重新循序寫入。\n請問要繼續嗎？";
+        if (!confirm(warningMsg)) {
+            return;
+        }
     }
     
     try {
@@ -633,7 +639,8 @@ async function startUSBSync() {
                 song_ids: songIds,
                 usb_path: usbPath,
                 wipe_first: wipeFirst,
-                naming_strategy: namingStrategy
+                naming_strategy: namingStrategy,
+                export_to_root: exportToRoot
             })
         });
         

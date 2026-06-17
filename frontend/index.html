@@ -219,10 +219,20 @@
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                                     <input type="radio" name="sync-type" value="deep" style="width: 20px; height: 20px;">
                                     <span style="color: #ffb199; font-weight: bold;">
-                                        深度重整 (清空隨身碟 K-Box 資料夾重新寫入，保證 DVD 播放機排序正確)
+                                        深度重整 (一鍵清理 K-Box 歌曲並循序寫入，保證 DVD 播放機排序正確)
                                     </span>
                                 </label>
                             </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="export-root-checkbox" checked style="width: 20px; height: 20px;">
+                                <span>直接匯出至隨身碟根目錄 (相容舊型播放機)</span>
+                            </label>
+                            <p style="font-size: var(--font-size-small); color: var(--text-muted); margin-top: 8px;">
+                                💡 勾選後，歌曲會直接存放在隨身碟的最外層。深度重整時，系統僅會清除 K-Box 產生的歌曲，絕對不會破壞您原本存放的其他照片、文件等個人檔案。
+                            </p>
                         </div>
                     </div>
                 </div>
