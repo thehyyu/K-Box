@@ -6,6 +6,19 @@ import psutil
 # Root folder of the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+def is_writable(path: Path) -> bool:
+    """Helper to verify if a directory path is truly writable on the filesystem."""
+    test_dir = path / ".kbox_write_test"
+    try:
+        test_dir.mkdir(parents=True, exist_ok=True)
+        test_file = test_dir / "test.tmp"
+        test_file.write_text("write_test", encoding="utf-8")
+        test_file.unlink()
+        test_dir.rmdir()
+        return True
+    except Exception:
+        return False
+
 # Auto-detect default library path (sandbox folder: K-Box_Library)
 def detect_library_dir() -> Path:
     # 1. Check if there's an environment variable set
@@ -15,36 +28,53 @@ def detect_library_dir() -> Path:
         p.mkdir(parents=True, exist_ok=True)
         return p
 
-    # 2. Check all active drive partitions for an existing "K-Box_Library" directory
-    # This automatically detects if the external hard drive with K-Box_Library is plugged in.
+    # 2. Check all active drive partitions for an existing and writable "K-Box_Library" directory
     try:
+        import ctypes
         for partition in psutil.disk_partitions(all=False):
-            # Skip read-only mounts
+            # Skip read-only mounts in options
             if "ro" in partition.opts:
                 continue
-            mount_path = Path(partition.mountpoint)
-            candidate = mount_path / "K-Box_Library"
-            if candidate.exists() and candidate.is_dir():
+            
+            mount_point = partition.mountpoint
+            
+            # Windows specific: Skip CD-ROM drives (DRIVE_CDROM = 5)
+            if os.name == "nt":
+                drive_type = ctypes.windll.kernel32.GetDriveTypeW(mount_point)
+                if drive_type == 5: # Skip CD-ROM
+                    continue
+
+            candidate = Path(mount_point) / "K-Box_Library"
+            if candidate.exists() and candidate.is_dir() and is_writable(candidate):
                 return candidate
     except Exception as e:
-        print(f"Error scanning partitions: {e}")
+        print(f"Error scanning partitions for existing library: {e}")
 
-    # 3. If no external drive contains the folder, look for any writeable removable drive
-    # and create the folder there.
+    # 3. If no existing library found, look for any writable removable drive to initialize
     try:
+        import ctypes
         for partition in psutil.disk_partitions(all=False):
             if "removable" in partition.opts.lower() and partition.fstype != "":
-                mount_path = Path(partition.mountpoint)
-                candidate = mount_path / "K-Box_Library"
-                try:
-                    candidate.mkdir(parents=True, exist_ok=True)
-                    return candidate
-                except Exception:
-                    continue
-    except Exception:
-        pass
+                mount_point = partition.mountpoint
+                
+                # Windows specific: Skip CD-ROM drives
+                if os.name == "nt":
+                    drive_type = ctypes.windll.kernel32.GetDriveTypeW(mount_point)
+                    if drive_type == 5:
+                        continue
 
-    # 4. Fallback: User's home directory
+                candidate = Path(mount_point) / "K-Box_Library"
+                if is_writable(Path(mount_point)):
+                    try:
+                        candidate.mkdir(parents=True, exist_ok=True)
+                        if is_writable(candidate):
+                            return candidate
+                    except Exception:
+                        continue
+    except Exception as e:
+        print(f"Error scanning partitions for new library: {e}")
+
+    # 4. Fallback: User's home directory (always writable)
     fallback = Path.home() / "K-Box_Library"
     fallback.mkdir(parents=True, exist_ok=True)
     return fallback
@@ -57,11 +87,10 @@ DB_PATH = LIBRARY_DIR / "library.json"
 
 # Auto-detect FFmpeg and FFprobe binaries
 def detect_binary_path(binary_name: str) -> str:
-    # On Windows, binaries end with .exe
     suffix = ".exe" if os.name == "nt" else ""
     full_name = f"{binary_name}{suffix}"
 
-    # 1. Check local project bin folder (e.g. backend/bin/ffmpeg.exe)
+    # 1. Check local project bin folder
     local_path = BASE_DIR / "backend" / "bin" / full_name
     if local_path.exists():
         return str(local_path)
@@ -90,7 +119,6 @@ def detect_binary_path(binary_name: str) -> str:
             if path.exists():
                 return str(path)
 
-    # Fallback to default name
     return binary_name
 
 FFMPEG_PATH = detect_binary_path("ffmpeg")
