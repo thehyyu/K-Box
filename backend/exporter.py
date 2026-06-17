@@ -47,7 +47,10 @@ def get_usb_drives() -> List[Dict[str, str]]:
                             name = vol_name if vol_name else f"USB Drive ({drive_letter.strip('/')})"
                         except Exception:
                             name = f"USB Drive ({drive_letter.strip('/')})"
-                            usage = MagicMock(free=0, total=0)
+                            class DummyUsage:
+                                free = 0
+                                total = 0
+                            usage = DummyUsage()
                             
                         drives.append({
                             "path": drive_letter,
