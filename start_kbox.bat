@@ -6,7 +6,7 @@ echo         K-Box Karaoke System Launcher
 echo =======================================================
 echo.
 
-:: Check if virtual environment exists
+REM Check if virtual environment exists
 if not exist ".venv" (
     echo [ERROR] Python virtual environment (.venv) not found.
     echo Please make sure you have run the initialization setup.
@@ -15,14 +15,14 @@ if not exist ".venv" (
     exit /b 1
 )
 
-:: Start FastAPI backend service
+REM Start FastAPI backend service
 echo 1. Starting K-Box Backend Server...
 start "K-Box Backend Server" cmd /c "call .venv\Scripts\activate && python -m uvicorn backend.main:app --host 127.0.0.1 --port 8080"
 
-:: Wait 2 seconds for server to load
+REM Wait 2 seconds for server to load
 timeout /t 2 /nobreak > nul
 
-:: Open Web Console in default browser
+REM Open Web Console in default browser
 echo 2. Opening Web Application Console...
 start http://localhost:8080/
 
