@@ -8,7 +8,7 @@ echo.
 
 REM Check if virtual environment exists
 if not exist ".venv" (
-    echo [ERROR] Python virtual environment (.venv) not found.
+    echo [ERROR] Python virtual environment .venv not found.
     echo Please make sure you have run the initialization setup.
     echo.
     pause
