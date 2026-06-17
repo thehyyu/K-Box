@@ -33,7 +33,15 @@ def get_media_duration(file_path: str) -> float:
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, startupinfo=startupinfo)
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            text=True, 
+            encoding="utf-8", 
+            errors="replace", 
+            check=True, 
+            startupinfo=startupinfo
+        )
         return float(result.stdout.strip())
     except Exception as e:
         print(f"Error reading duration for {file_path}: {e}")
@@ -85,7 +93,9 @@ def run_transcode(song_id: str, src_path: str, dest_path: str, start_time: Optio
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,  # Redirect stderr to stdout to catch everything in one stream
-            universal_newlines=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",          # Replace invalid characters instead of raising UnicodeDecodeError
             startupinfo=startupinfo
         )
         

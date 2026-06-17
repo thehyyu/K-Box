@@ -69,7 +69,15 @@ def probe_dvd_chapters(vob_path: str) -> List[dict]:
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, startupinfo=startupinfo)
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            text=True, 
+            encoding="utf-8", 
+            errors="replace", 
+            check=True, 
+            startupinfo=startupinfo
+        )
         data = json.loads(result.stdout)
         
         chapters = []
