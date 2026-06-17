@@ -268,7 +268,7 @@ async function pollQueueOnce() {
         const jobs = status.jobs;
         
         // Update summaries
-        document.getElementById("queue-summary-active").textContent = `待處理: ${summary.queue_size + summary.active_count} 首`;
+        document.getElementById("queue-summary-active").textContent = `待處理: ${summary.active_count} 首`;
         document.getElementById("queue-summary-completed").textContent = `已完成: ${summary.completed_count} 首`;
         document.getElementById("queue-summary-failed").textContent = `失敗: ${summary.failed_count} 首`;
         
