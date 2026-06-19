@@ -267,6 +267,17 @@ def transcode_worker():
                     
                 current_active_job = None
                 
+            # If the source file is in UPLOAD_DIR, clean it up after conversion
+            try:
+                from backend.config import UPLOAD_DIR
+                src_p = Path(src_path)
+                if UPLOAD_DIR in src_p.parents:
+                    if src_p.exists():
+                        os.unlink(src_p)
+                        print(f"Cleaned up uploaded temp file: {src_path}")
+            except Exception as e:
+                print(f"Failed to clean up temp file {src_path}: {e}")
+                
             conversion_queue.task_done()
             
         except Exception as e:

@@ -62,6 +62,9 @@ LIBRARY_DIR = detect_library_dir()
 SONGS_DIR = LIBRARY_DIR / "songs"
 SONGS_DIR.mkdir(parents=True, exist_ok=True)
 
+UPLOAD_DIR = LIBRARY_DIR / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
 DB_PATH = LIBRARY_DIR / "library.json"
 
 # Auto-detect FFmpeg and FFprobe binaries

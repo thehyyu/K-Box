@@ -417,3 +417,17 @@ tr:hover {
         flex-direction: column;
     }
 }
+
+/* Drag & Drop Upload Zone */
+.upload-dropzone:hover, .upload-dropzone.dragover {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 15px var(--primary-glow);
+    background: rgba(0, 242, 254, 0.05) !important;
+}
+
+.source-toggle-group .btn.active {
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+    color: var(--bg-dark);
+    box-shadow: 0 4px 15px var(--primary-glow);
+    border-color: transparent;
+}

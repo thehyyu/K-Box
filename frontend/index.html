@@ -51,8 +51,14 @@
                 <!-- Left Column: Drive Scan Controls -->
                 <div class="col" style="flex: 2;">
                     <div class="card">
-                        <div class="card-title">1. 掃描光碟機</div>
-                        <div class="btn-group" style="margin-bottom: 20px;">
+                        <div class="card-title">1. 選擇匯入來源</div>
+                        <div class="source-toggle-group" style="display: flex; gap: 15px; margin-bottom: 20px;">
+                            <button class="btn btn-secondary active" id="src-cd-btn" onclick="toggleImportSource('cd')" style="flex: 1; padding: 12px; font-size: 18px;">💿 光碟機掃描</button>
+                            <button class="btn btn-secondary" id="src-upload-btn" onclick="toggleImportSource('upload')" style="flex: 1; padding: 12px; font-size: 18px;">💻 本機檔案上傳</button>
+                        </div>
+                        
+                        <!-- CD Scan Area -->
+                        <div id="cd-source-area" class="btn-group" style="margin-bottom: 0;">
                             <div class="form-group" style="flex-grow: 1; margin-bottom: 0;">
                                 <select class="form-control" id="drive-select">
                                     <option value="">-- 請選擇光碟槽 --</option>
@@ -60,6 +66,35 @@
                             </div>
                             <button class="btn btn-secondary" onclick="detectDrives()">🔄 重新整理</button>
                             <button class="btn btn-primary" onclick="scanDrive()">🔍 掃描光碟</button>
+                        </div>
+                        
+                        <!-- Local Upload Area -->
+                        <div id="upload-source-area" style="display: none;">
+                            <div class="upload-dropzone" id="upload-dropzone" 
+                                 onclick="triggerFileInput()"
+                                 ondragover="handleDragOver(event)" 
+                                 ondragleave="handleDragLeave(event)" 
+                                 ondrop="handleDrop(event)"
+                                 style="border: 2px dashed var(--border-color); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(255,255,255,0.02);">
+                                <span style="font-size: 40px; display: block; margin-bottom: 10px;">📤</span>
+                                <span style="font-weight: bold; font-size: 18px; color: var(--text-color); display: block;">拖曳 VOB / MPG 等影音檔案至此</span>
+                                <span style="display: block; font-size: var(--font-size-small); color: var(--text-muted); margin-top: 5px;">（或點擊選擇檔案，支援多選）</span>
+                            </div>
+                            <input type="file" id="file-input" multiple 
+                                   accept=".vob,.mpg,.mpeg,.avi,.mp4,.mkv,.ts,.dat" 
+                                   style="display: none;" 
+                                   onchange="handleFileSelect(event)">
+                            
+                            <!-- Uploading Status Indicator -->
+                            <div id="upload-status" style="display: none; margin-top: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; font-size: var(--font-size-small); color: var(--text-muted); margin-bottom: 5px;">
+                                    <span id="upload-status-text">正在準備上傳...</span>
+                                    <span id="upload-status-pct">0%</span>
+                                </div>
+                                <div class="progress-container" style="margin-top: 5px; height: 16px;">
+                                    <div class="progress-bar" id="upload-progress-bar" style="background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     

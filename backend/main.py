@@ -1,14 +1,15 @@
 import os
+import shutil
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend.config import BASE_DIR, FFMPEG_PATH, FFPROBE_PATH, LIBRARY_DIR
+from backend.config import BASE_DIR, FFMPEG_PATH, FFPROBE_PATH, LIBRARY_DIR, UPLOAD_DIR
 from backend.database import db
 from backend.scanner import detect_optical_drives, scan_drive_tracks
 from backend.converter import add_transcode_job, get_job_statuses
@@ -39,6 +40,8 @@ class TrackImportInfo(BaseModel):
 
 class ImportRequest(BaseModel):
     tracks: List[TrackImportInfo]
+    album_id: Optional[str] = None
+    album_name: Optional[str] = None
 
 class ExportRequest(BaseModel):
     song_ids: List[str]
@@ -114,10 +117,10 @@ def import_tracks(request: ImportRequest):
     if not request.tracks:
         raise HTTPException(status_code=400, detail="未選擇任何歌曲進行匯入")
         
-    # Auto-generate CD ID & Name from current timestamp to save parents from typing
+    # Auto-generate CD ID & Name from current timestamp if not provided
     now = datetime.now()
-    album_id = f"CD_{now.strftime('%Y%m%d_%H%M')}"
-    album_name = f"{now.strftime('%Y-%m-%d %H:%M')} 匯入的光碟"
+    album_id = request.album_id or f"CD_{now.strftime('%Y%m%d_%H%M')}"
+    album_name = request.album_name or f"{now.strftime('%Y-%m-%d %H:%M')} 匯入的光碟"
     
     queued_ids = []
     for track in request.tracks:
@@ -139,6 +142,58 @@ def import_tracks(request: ImportRequest):
         "song_ids": queued_ids,
         "message": f"已成功將 {len(queued_ids)} 首歌曲加入背景轉檔佇列。"
     }
+
+@app.post("/api/upload")
+async def upload_files(files: List[UploadFile] = File(...)):
+    """
+    Uploads local video files (VOB, MPG, etc.) to the sandbox uploads directory.
+    Returns basic file details, which frontend can use to let parents customize 
+    titles/artists before importing.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="未選擇任何檔案")
+        
+    results = []
+    now = datetime.now()
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    
+    for idx, file in enumerate(files):
+        filename = file.filename
+        ext = Path(filename).suffix.lower()
+        if ext not in {".vob", ".mpg", ".mpeg", ".avi", ".mp4", ".mkv", ".ts", ".dat"}:
+            raise HTTPException(status_code=400, detail=f"不支援的檔案格式：{filename}")
+            
+        # Create safe and unique filename
+        safe_filename = f"{timestamp}_{idx}_{filename}"
+        save_path = UPLOAD_DIR / safe_filename
+        
+        # Save file to sandbox UPLOAD_DIR
+        try:
+            with save_path.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"儲存上傳檔案失敗 {filename}: {str(e)}")
+            
+        # Retrieve basic info
+        file_size = save_path.stat().st_size
+        
+        # Get duration using ffprobe if available
+        from backend.converter import get_media_duration
+        duration = get_media_duration(str(save_path))
+        
+        # Default title is the filename without extension
+        default_title = Path(filename).stem
+        
+        results.append({
+            "original_path": str(save_path),
+            "filename": filename,
+            "title": default_title,
+            "artist": "",
+            "duration": duration,
+            "file_size": file_size
+        })
+        
+    return {"files": results}
 
 @app.get("/api/import/status")
 def get_import_status():

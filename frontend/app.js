@@ -74,8 +74,162 @@ async function checkSystemStatus() {
 }
 
 // ----------------------------------------------------
-// TAB 1: IMPORT CD MODE
+// TAB 1: IMPORT CD & LOCAL FILE MODE
 // ----------------------------------------------------
+let currentImportSource = "cd";
+
+function toggleImportSource(source) {
+    currentImportSource = source;
+    
+    const cdBtn = document.getElementById("src-cd-btn");
+    const uploadBtn = document.getElementById("src-upload-btn");
+    const cdArea = document.getElementById("cd-source-area");
+    const uploadArea = document.getElementById("upload-source-area");
+    
+    // Toggle active classes
+    if (source === "cd") {
+        cdBtn.classList.add("active");
+        uploadBtn.classList.remove("active");
+        cdArea.style.display = "flex";
+        uploadArea.style.display = "none";
+        document.getElementById("tracks-card-title").textContent = "2. 選擇歌曲並命名";
+    } else {
+        cdBtn.classList.remove("active");
+        uploadBtn.classList.add("active");
+        cdArea.style.display = "none";
+        uploadArea.style.display = "block";
+        document.getElementById("tracks-card-title").textContent = "2. 確認上傳歌曲並命名";
+    }
+    
+    // Clear previously scanned or uploaded files to avoid mixing
+    scannedTracks = [];
+    document.getElementById("tracks-card").style.display = "none";
+    document.getElementById("tracks-table-body").innerHTML = "";
+}
+
+function triggerFileInput() {
+    document.getElementById("file-input").click();
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById("upload-dropzone").classList.add("dragover");
+}
+
+function handleDragLeave(e) {
+    document.getElementById("upload-dropzone").classList.remove("dragover");
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById("upload-dropzone").classList.remove("dragover");
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        uploadFiles(files);
+    }
+}
+
+function handleFileSelect(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+        uploadFiles(files);
+    }
+}
+
+function uploadFiles(files) {
+    const formData = new FormData();
+    let validFilesCount = 0;
+    
+    // Allowed extensions check
+    const allowedExts = [".vob", ".mpg", ".mpeg", ".avi", ".mp4", ".mkv", ".ts", ".dat"];
+    
+    for (let i = 0; i < files.length; i++) {
+        const name = files[i].name.toLowerCase();
+        const isValid = allowedExts.some(ext => name.endsWith(ext));
+        if (isValid) {
+            formData.append("files", files[i]);
+            validFilesCount++;
+        } else {
+            alert(`不支援的檔案格式：${files[i].name}\n僅支援 VOB, MPG, MPEG, AVI, MP4, MKV, TS, DAT 格式。`);
+        }
+    }
+    
+    if (validFilesCount === 0) return;
+    
+    // Show upload progress
+    const statusDiv = document.getElementById("upload-status");
+    const statusText = document.getElementById("upload-status-text");
+    const statusPct = document.getElementById("upload-status-pct");
+    const progressBar = document.getElementById("upload-progress-bar");
+    
+    statusDiv.style.display = "block";
+    statusText.textContent = "準備上傳中...";
+    statusPct.textContent = "0%";
+    progressBar.style.width = "0%";
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/upload`);
+    
+    xhr.upload.onprogress = function(event) {
+        if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            progressBar.style.width = percent + "%";
+            statusPct.textContent = percent + "%";
+            statusText.textContent = `正在上傳中 (${percent}%)...`;
+        }
+    };
+    
+    xhr.onload = function() {
+        statusDiv.style.display = "none";
+        // Reset file input so same file can be selected again
+        document.getElementById("file-input").value = "";
+        
+        if (xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                handleUploadSuccess(response.files);
+            } catch (err) {
+                alert("❌ 解析伺服器回應失敗");
+            }
+        } else {
+            let errMsg = "上傳失敗";
+            try {
+                const errData = JSON.parse(xhr.responseText);
+                errMsg = errData.detail || errMsg;
+            } catch(e) {}
+            alert("❌ 上傳失敗: " + errMsg);
+        }
+    };
+    
+    xhr.onerror = function() {
+        statusDiv.style.display = "none";
+        document.getElementById("file-input").value = "";
+        alert("❌ 上傳失敗：網路連線錯誤");
+    };
+    
+    xhr.send(formData);
+}
+
+function handleUploadSuccess(uploadedFiles) {
+    scannedTracks = uploadedFiles.map((file, idx) => {
+        return {
+            track_number: idx + 1,
+            filename: file.filename,
+            original_path: file.original_path,
+            file_size: file.file_size,
+            duration: file.duration,
+            type: "UPLOAD",
+            title: file.title,
+            artist: file.artist,
+            start_time: null,
+            end_time: null
+        };
+    });
+    
+    document.getElementById("tracks-card").style.display = "block";
+    renderScannedTracks();
+}
+
 async function detectDrives() {
     try {
         const select = document.getElementById("drive-select");
@@ -140,7 +294,8 @@ function renderScannedTracks() {
     selectAll.checked = true; // Default to select all
     
     if (scannedTracks.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted);">光碟中沒有符合的歌曲檔案。</td></tr>';
+        const emptyMsg = currentImportSource === "upload" ? "目前無上傳的歌曲檔案。" : "光碟中沒有符合的歌曲檔案。";
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted);">${emptyMsg}</td></tr>`;
         return;
     }
     
@@ -149,8 +304,20 @@ function renderScannedTracks() {
         const tr = document.createElement("tr");
         
         // Formulate suggested name (defaults to blank, elder-friendly placeholders)
-        const formatLabel = track.type === "DVD_CHAPTER" ? `DVD 章節 (${track.start_time}s - ${track.end_time}s)` : track.type;
+        let formatLabel = track.type;
+        if (track.type === "DVD_CHAPTER") {
+            formatLabel = `DVD 章節 (${track.start_time}s - ${track.end_time}s)`;
+        } else if (track.type === "UPLOAD") {
+            formatLabel = "💻 本機影片";
+        }
+        
         const sizeMb = (track.file_size / (1024 * 1024)).toFixed(1);
+        
+        // Prefill title / artist for uploads
+        let defaultVal = "";
+        if (track.type === "UPLOAD" && track.title) {
+            defaultVal = track.artist ? `${track.title} - ${track.artist}` : track.title;
+        }
         
         tr.innerHTML = `
             <td style="text-align: center;">
@@ -167,7 +334,7 @@ function renderScannedTracks() {
             <td>
                 <input type="text" class="form-control track-title-input" 
                        placeholder="歌名 - 歌手 (例如: 川の流れのように - 美空ひばり)" 
-                       style="font-size: 16px;" value="">
+                       style="font-size: 16px;" value="${defaultVal}">
             </td>
         `;
         tbody.appendChild(tr);
@@ -225,11 +392,25 @@ async function importSelectedTracks() {
         });
     });
     
+    // Prepare import payload
+    const payload = { tracks: tracksToImport };
+    if (currentImportSource === "upload") {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        
+        payload.album_id = `UPLOAD_${yyyy}${mm}${dd}_${hh}${min}`;
+        payload.album_name = `${yyyy}-${mm}-${dd} ${hh}:${min} 上傳的本機歌曲`;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/api/import`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tracks: tracksToImport })
+            body: JSON.stringify(payload)
         });
         
         if (!response.ok) throw new Error("匯入佇列失敗");

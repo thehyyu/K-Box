@@ -113,3 +113,64 @@ def test_song_crud():
     response = client.delete(f"/api/songs/{song_id}?delete_file=false")
     assert response.status_code == 200
     assert db.get_song(song_id) is None
+
+def test_upload_endpoint(tmp_path):
+    """Verify upload endpoint successfully saves files to UPLOAD_DIR and extracts duration."""
+    from pathlib import Path
+    
+    with patch("backend.main.UPLOAD_DIR", tmp_path), \
+         patch("backend.converter.get_media_duration", return_value=120.5):
+        
+        # 1. Success case (.vob)
+        files = {"files": ("test_song.vob", b"dummy vob content", "video/dvd")}
+        response = client.post("/api/upload", files=files)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "files" in data
+        assert len(data["files"]) == 1
+        
+        uploaded = data["files"][0]
+        assert uploaded["filename"] == "test_song.vob"
+        assert uploaded["title"] == "test_song"
+        assert uploaded["artist"] == ""
+        assert uploaded["duration"] == 120.5
+        assert uploaded["file_size"] == len(b"dummy vob content")
+        assert Path(uploaded["original_path"]).exists()
+        
+        # 2. Invalid Extension Error
+        files = {"files": ("test_song.txt", b"dummy text content", "text/plain")}
+        response = client.post("/api/upload", files=files)
+        assert response.status_code == 400
+        assert "不支援的檔案格式" in response.json()["detail"]
+
+@patch("backend.main.add_transcode_job")
+def test_import_endpoint_with_custom_album(mock_add_job):
+    """Verify import endpoint accepts and uses custom album ID and name."""
+    mock_add_job.return_value = "UPLOAD_20260619_T01"
+    
+    payload = {
+        "tracks": [
+            {
+                "original_path": "/path/to/upload.vob",
+                "track_number": 1,
+                "title": "愛拼才會贏",
+                "artist": "葉啟田"
+            }
+        ],
+        "album_id": "UPLOAD_20260619_2215",
+        "album_name": "本機上傳歌曲 2026-06-19"
+    }
+    
+    response = client.post("/api/import", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert data["album_id"] == "UPLOAD_20260619_2215"
+    assert data["album_name"] == "本機上傳歌曲 2026-06-19"
+    
+    mock_add_job.assert_called_once()
+    args, kwargs = mock_add_job.call_args
+    assert kwargs["album_id"] == "UPLOAD_20260619_2215"
+    assert kwargs["album_name"] == "本機上傳歌曲 2026-06-19"
+
