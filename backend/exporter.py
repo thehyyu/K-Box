@@ -272,7 +272,7 @@ def get_export_status() -> dict:
 def generate_songbook_html(song_ids: List[str], naming_strategy: str = "ktv_number") -> str:
     """
     Renders A4 dual-column printable HTML songbook for the selected song IDs.
-    Sorted alphabetically/phonetically by title, and by artist/album if needed.
+    Sorted by sequence index (KTV number 1001, 1002, 1003...).
     """
     songs = []
     for index, song_id in enumerate(song_ids):
@@ -286,13 +286,6 @@ def generate_songbook_html(song_ids: List[str], naming_strategy: str = "ktv_numb
                 "album": song.get("album_name", "Unknown Album"),
                 "track": song.get("track_number", 1)
             })
-
-    # Sort layouts
-    # Layout 1: Sorted by Song Title (Alphabetical)
-    by_title = sorted(songs, key=lambda x: (x["title"], x["artist"]))
-    
-    # Layout 2: Sorted by Artist / Singer
-    by_artist = sorted(songs, key=lambda x: (x["artist"], x["title"]))
 
     # Read date
     date_str = time.strftime("%Y-%m-%d")
@@ -440,19 +433,19 @@ def generate_songbook_html(song_ids: List[str], naming_strategy: str = "ktv_numb
         <p class="subtitle">共收錄 {len(songs)} 首精選金曲 • 日期: {date_str}</p>
     </header>
 
-    <h2>一、依【歌名字首】索引目錄</h2>
+    <h2>歌曲目錄 (依點歌代碼排序)</h2>
     <div class="grid">
     """
     
-    # Render Columns for Title Sorting
-    mid_title = (len(by_title) + 1) // 2
-    col1_title = by_title[:mid_title]
-    col2_title = by_title[mid_title:]
+    # Render Columns
+    mid = (len(songs) + 1) // 2
+    col1 = songs[:mid]
+    col2 = songs[mid:]
     
     def render_column(items: List[dict]) -> str:
         col_html = []
         for song in items:
-            code_prefix = f'<span class="song-code">{song["code"]}</span>' if song["code"] else ''
+            code_prefix = f'<span class="song-code">[{song["code"]}]</span>' if song["code"] else ''
             artist_str = f'<span class="song-artist">({song["artist"]})</span>' if song["artist"] else ''
             col_html.append(f"""
                 <div class="song-item">
@@ -468,53 +461,10 @@ def generate_songbook_html(song_ids: List[str], naming_strategy: str = "ktv_numb
 
     html += f"""
         <div class="column">
-            {render_column(col1_title)}
+            {render_column(col1)}
         </div>
         <div class="column">
-            {render_column(col2_title)}
-        </div>
-    </div>
-    """
-
-    # Layout by Artist
-    html += """
-    <div class="page-break"></div>
-    <h2>二、依【歌手/歌星】索引目錄</h2>
-    <div class="grid">
-    """
-    
-    mid_artist = (len(by_artist) + 1) // 2
-    col1_artist = by_artist[:mid_artist]
-    col2_artist = by_artist[mid_artist:]
-    
-    def render_artist_column(items: List[dict]) -> str:
-        col_html = []
-        current_artist = ""
-        for song in items:
-            # Add artist group header
-            artist_label = song["artist"] if song["artist"] else "未知歌手"
-            if artist_label != current_artist:
-                current_artist = artist_label
-                col_html.append(f'<div style="font-weight:bold; margin-top:8px; color:#c0392b; border-bottom:1px solid #c0392b; font-size:11px; text-transform:uppercase;">🎤 {current_artist}</div>')
-                
-            code_prefix = f'<span class="song-code">{song["code"]}</span>' if song["code"] else ''
-            col_html.append(f"""
-                <div class="song-item">
-                    <div class="song-info">
-                        {code_prefix}
-                        <span class="song-title">{song["title"]}</span>
-                    </div>
-                    <span class="song-locator">{song["album"][:10]} (Tr {song["track"]})</span>
-                </div>
-            """)
-        return "".join(col_html)
-
-    html += f"""
-        <div class="column">
-            {render_artist_column(col1_artist)}
-        </div>
-        <div class="column">
-            {render_artist_column(col2_artist)}
+            {render_column(col2)}
         </div>
     </div>
 </body>
