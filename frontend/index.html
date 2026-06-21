@@ -176,10 +176,15 @@
             
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                    <div class="btn-group">
-                        <button class="btn btn-secondary active" id="filter-all-btn" onclick="filterLibrary('all')">全部歌曲</button>
-                        <button class="btn btn-secondary" id="filter-incomplete-btn" onclick="filterLibrary('incomplete')">
-                            ⚠️ 待補檔歌曲 (<span id="incomplete-count">0</span>)
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <div class="btn-group">
+                            <button class="btn btn-secondary active" id="filter-all-btn" onclick="filterLibrary('all')">全部歌曲</button>
+                            <button class="btn btn-secondary" id="filter-incomplete-btn" onclick="filterLibrary('incomplete')">
+                                ⚠️ 待補檔歌曲 (<span id="incomplete-count">0</span>)
+                            </button>
+                        </div>
+                        <button class="btn btn-danger" id="bulk-delete-btn" onclick="bulkDeleteSongs()" disabled>
+                            🗑️ 刪除選取歌曲 (<span id="selected-count">0</span>)
                         </button>
                     </div>
                     <div style="font-size: var(--font-size-small); color: var(--text-muted);">
@@ -191,6 +196,9 @@
                     <table>
                         <thead>
                             <tr>
+                                <th style="width: 60px; text-align: center;">
+                                    <input type="checkbox" id="select-all-library" onclick="toggleSelectAllLibrary(this)" style="transform: scale(1.6); cursor: pointer; vertical-align: middle;">
+                                </th>
                                 <th style="width: 150px;">狀態</th>
                                 <th style="width: 200px;">匯入時間</th>
                                 <th>歌名</th>

@@ -431,3 +431,13 @@ tr:hover {
     box-shadow: 0 4px 15px var(--primary-glow);
     border-color: transparent;
 }
+
+/* Disabled button state */
+.btn:disabled {
+    background: #3a3a3c !important;
+    color: #8e8e93 !important;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+    opacity: 0.6;
+}

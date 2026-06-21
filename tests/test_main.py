@@ -174,3 +174,38 @@ def test_import_endpoint_with_custom_album(mock_add_job):
     assert kwargs["album_id"] == "UPLOAD_20260619_2215"
     assert kwargs["album_name"] == "本機上傳歌曲 2026-06-19"
 
+def test_bulk_delete_endpoint():
+    """Verify that DELETE /api/songs bulk deletes multiple songs."""
+    album_id = "CD_BULK_DELETE_API_TEST"
+    db.add_album(album_id, "Bulk Delete API Album")
+    
+    song_id_1 = f"{album_id}_T01"
+    song_id_2 = f"{album_id}_T02"
+    song_id_3 = f"{album_id}_T03"
+    
+    for idx, sid in enumerate([song_id_1, song_id_2, song_id_3], 1):
+        db.add_or_update_song(sid, {
+            "album_id": album_id,
+            "album_name": "Bulk Delete API Album",
+            "track_number": idx,
+            "title": f"Song {idx}",
+            "artist": "Artist",
+            "status": "completed"
+        })
+        
+    assert len(db.get_songs_by_album(album_id)) == 3
+    
+    # Trigger bulk delete
+    response = client.request(
+        "DELETE",
+        "/api/songs?delete_file=false",
+        json={"song_ids": [song_id_1, song_id_3]}
+    )
+    assert response.status_code == 200
+    assert "已成功刪除" in response.json()["message"]
+    
+    # Check what remains
+    album_songs = db.get_songs_by_album(album_id)
+    assert len(album_songs) == 1
+    assert album_songs[0]["id"] == song_id_2
+

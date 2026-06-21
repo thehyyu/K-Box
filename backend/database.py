@@ -252,5 +252,39 @@ class Database:
             self.update_album_status(album_id)
         return True
 
+    def delete_songs(self, song_ids: List[str], delete_file: bool = True) -> bool:
+        album_ids_to_update = set()
+        with self.lock:
+            data = self._load_data()
+            any_deleted = False
+            for song_id in song_ids:
+                if song_id in data["songs"]:
+                    song = data["songs"][song_id]
+                    album_id = song.get("album_id")
+                    if album_id:
+                        album_ids_to_update.add(album_id)
+                    
+                    # Delete file
+                    if delete_file and "file_path" in song:
+                        p = Path(song["file_path"])
+                        if not p.is_absolute():
+                            p = SONGS_DIR.parent / p
+                        try:
+                            if p.exists():
+                                p.unlink()
+                        except Exception as e:
+                            print(f"Failed to delete song file {p}: {e}")
+                    
+                    del data["songs"][song_id]
+                    any_deleted = True
+            
+            if any_deleted:
+                self._save_data(data)
+                
+        for album_id in album_ids_to_update:
+            self.update_album_status(album_id)
+            
+        return any_deleted
+
 # Singleton database instance
 db = Database()

@@ -136,3 +136,32 @@ def test_rename_song_file(temp_db, tmp_path):
         shutil.rmtree(album_dir)
     except Exception:
         pass
+
+def test_delete_songs_bulk(temp_db):
+    """Verify that delete_songs bulk deletes multiple songs from database."""
+    album_id = "CD_BULK_DELETE_TEST"
+    temp_db.add_album(album_id, "Bulk Delete Album")
+    
+    song_id_1 = f"{album_id}_T01"
+    song_id_2 = f"{album_id}_T02"
+    song_id_3 = f"{album_id}_T03"
+    
+    for idx, sid in enumerate([song_id_1, song_id_2, song_id_3], 1):
+        temp_db.add_or_update_song(sid, {
+            "album_id": album_id,
+            "album_name": "Bulk Delete Album",
+            "track_number": idx,
+            "title": f"Song {idx}",
+            "artist": "Artist",
+            "status": "completed"
+        })
+        
+    assert len(temp_db.get_songs()) == 3
+    
+    # Delete two of them
+    deleted = temp_db.delete_songs([song_id_1, song_id_3], delete_file=False)
+    assert deleted is True
+    
+    songs = temp_db.get_songs()
+    assert len(songs) == 1
+    assert songs[0]["id"] == song_id_2

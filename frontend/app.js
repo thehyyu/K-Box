@@ -7,6 +7,7 @@ let scannedTracks = [];
 let librarySongs = [];
 let libraryAlbums = [];
 let activeFilter = "all";
+let selectedLibrarySongIds = new Set();
 
 // Pollers intervals
 let importPoller = null;
@@ -567,6 +568,13 @@ async function loadLibrary() {
         }).length;
         document.getElementById("incomplete-count").textContent = incompleteCount;
         
+        // Clear selection on reload
+        selectedLibrarySongIds.clear();
+        if (document.getElementById("select-all-library")) {
+            document.getElementById("select-all-library").checked = false;
+            document.getElementById("select-all-library").indeterminate = false;
+        }
+        
         renderLibraryTable();
         renderExportTable();
     } catch (err) {
@@ -578,6 +586,13 @@ function filterLibrary(filterType) {
     activeFilter = filterType;
     document.getElementById("filter-all-btn").className = filterType === "all" ? "btn btn-secondary active" : "btn btn-secondary";
     document.getElementById("filter-incomplete-btn").className = filterType === "incomplete" ? "btn btn-secondary active" : "btn btn-secondary";
+    
+    // Clear selection on filter change
+    selectedLibrarySongIds.clear();
+    if (document.getElementById("select-all-library")) {
+        document.getElementById("select-all-library").checked = false;
+        document.getElementById("select-all-library").indeterminate = false;
+    }
     
     renderLibraryTable();
 }
@@ -596,7 +611,8 @@ function renderLibraryTable() {
     }
     
     if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">庫內無符合篩選條件的歌曲。</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">庫內無符合篩選條件的歌曲。</td></tr>';
+        updateLibrarySelectionUI();
         return;
     }
     
@@ -617,7 +633,14 @@ function renderLibraryTable() {
             
         const formattedDate = song.created_at ? song.created_at.slice(0, 16).replace("T", " ") : "--";
         
+        const isChecked = selectedLibrarySongIds.has(song.id) ? "checked" : "";
+        
         tr.innerHTML = `
+            <td style="text-align: center;">
+                <input type="checkbox" class="library-select-checkbox" value="${song.id}" ${isChecked} 
+                       onchange="toggleSelectSong('${song.id}', this)"
+                       style="transform: scale(1.6); cursor: pointer; vertical-align: middle;">
+            </td>
             <td>${statusBadge}</td>
             <td style="color: var(--text-muted); font-size: var(--font-size-small);">${formattedDate}</td>
             <td style="font-weight: bold; font-size: 20px;" class="cell-title">${song.title}</td>
@@ -636,6 +659,8 @@ function renderLibraryTable() {
         `;
         tbody.appendChild(tr);
     });
+    
+    updateLibrarySelectionUI();
 }
 
 // Inline Editing functions
@@ -702,6 +727,80 @@ async function deleteSong(songId) {
         });
         if (!response.ok) throw new Error("刪除失敗");
         loadLibrary();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+function toggleSelectSong(songId, checkbox) {
+    if (checkbox.checked) {
+        selectedLibrarySongIds.add(songId);
+    } else {
+        selectedLibrarySongIds.delete(songId);
+    }
+    updateLibrarySelectionUI();
+}
+
+function toggleSelectAllLibrary(checkbox) {
+    const checkboxes = document.querySelectorAll("#library-table-body .library-select-checkbox");
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        if (checkbox.checked) {
+            selectedLibrarySongIds.add(cb.value);
+        } else {
+            selectedLibrarySongIds.delete(cb.value);
+        }
+    });
+    updateLibrarySelectionUI();
+}
+
+function updateLibrarySelectionUI() {
+    const deleteBtn = document.getElementById("bulk-delete-btn");
+    const selectedCountSpan = document.getElementById("selected-count");
+    const selectAllCheckbox = document.getElementById("select-all-library");
+    
+    if (!deleteBtn || !selectedCountSpan || !selectAllCheckbox) return;
+    
+    const selectedCount = selectedLibrarySongIds.size;
+    selectedCountSpan.textContent = selectedCount;
+    deleteBtn.disabled = selectedCount === 0;
+    
+    // Update select all checkbox state
+    const visibleCheckboxes = document.querySelectorAll("#library-table-body .library-select-checkbox");
+    if (visibleCheckboxes.length > 0) {
+        const allChecked = Array.from(visibleCheckboxes).every(cb => cb.checked);
+        const noneChecked = Array.from(visibleCheckboxes).every(cb => !cb.checked);
+        selectAllCheckbox.checked = allChecked;
+        selectAllCheckbox.indeterminate = (!allChecked && !noneChecked);
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+}
+
+async function bulkDeleteSongs() {
+    const selectedCount = selectedLibrarySongIds.size;
+    if (selectedCount === 0) return;
+    
+    if (!confirm(`⚠️ 確定要刪除這 ${selectedCount} 首已選取的歌曲嗎？這將會從行動硬碟永久移除這些影片檔案！`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/songs?delete_file=true`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ song_ids: Array.from(selectedLibrarySongIds) })
+        });
+        
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "批次刪除失敗");
+        }
+        
+        selectedLibrarySongIds.clear();
+        loadLibrary();
+        alert("已成功刪除選取的歌曲！");
     } catch (err) {
         alert(err.message);
     }

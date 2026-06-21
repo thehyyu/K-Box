@@ -54,6 +54,9 @@ class RenameSongRequest(BaseModel):
     title: str
     artist: str
 
+class BulkDeleteRequest(BaseModel):
+    song_ids: List[str]
+
 # Endpoints
 @app.get("/api/system-status")
 def get_system_status():
@@ -249,6 +252,16 @@ def delete_song(song_id: str, delete_file: bool = True):
     if not success:
         raise HTTPException(status_code=404, detail="找不到指定的歌曲")
     return {"message": "歌曲已成功刪除"}
+
+@app.delete("/api/songs")
+def bulk_delete_songs(request: BulkDeleteRequest, delete_file: bool = True):
+    """Deletes multiple songs from the database and disk storage."""
+    if not request.song_ids:
+        raise HTTPException(status_code=400, detail="未指定要刪除的歌曲 ID")
+    success = db.delete_songs(request.song_ids, delete_file)
+    if not success:
+        raise HTTPException(status_code=404, detail="找不到指定的歌曲，或歌曲已被刪除")
+    return {"message": f"已成功刪除 {len(request.song_ids)} 首歌曲"}
 
 @app.delete("/api/albums/{album_id}")
 def delete_album(album_id: str, delete_files: bool = True):
