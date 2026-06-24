@@ -125,9 +125,12 @@ def run_transcode(song_id: str, src_path: str, dest_path: str, start_time: Optio
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "23",
-        "-vf", "scale=-2:480",  # Scale to 480p, preserving aspect ratio, multiple of 2
-        "-c:a", "aac",
+        "-profile:v", "baseline",
+        "-level", "3.0",
+        "-vf", "scale=720:480:force_original_aspect_ratio=decrease,scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)',setsar=1,pad=720:480:(ow-iw)/2:(oh-ih)/2",
+        "-c:a", "libmp3lame",
         "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
         "-progress", "pipe:1",  # Output progress parameters to stdout
         str(dest_path_obj)
     ])
