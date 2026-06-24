@@ -6,7 +6,7 @@ import queue
 import time
 from pathlib import Path
 from typing import Dict, Optional, List
-from backend.config import FFMPEG_PATH, FFPROBE_PATH, SONGS_DIR
+from backend.config import FFMPEG_PATH, FFPROBE_PATH, SONGS_DIR, OUTPUT_EXTENSION
 from backend.database import db
 
 # Thread-safe queue for transcoding tasks
@@ -122,11 +122,9 @@ def run_transcode(song_id: str, src_path: str, dest_path: str, start_time: Optio
         cmd.extend(["-ss", f"{start_time:.3f}", "-t", f"{slice_duration:.3f}"])
         
     cmd.extend([
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-profile:v", "baseline",
-        "-level", "3.0",
+        "-c:v", "mpeg4",
+        "-vtag", "XVID",
+        "-qscale:v", "5",
         "-vf", "scale=720:480:force_original_aspect_ratio=decrease,scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)',setsar=1,pad=720:480:(ow-iw)/2:(oh-ih)/2",
         "-c:a", "libmp3lame",
         "-b:a", "128k",
@@ -297,7 +295,7 @@ def add_transcode_job(album_id: str, album_name: str, track_num: int, title: str
     
     # Sanitize title for filename
     clean_title = re.sub(r'[\\/*?:"<>|]', "", title).strip()
-    dest_filename = f"T{track_num:02d}_{clean_title}.mp4"
+    dest_filename = f"T{track_num:02d}_{clean_title}{OUTPUT_EXTENSION}"
     dest_path = SONGS_DIR / album_id / dest_filename
     
     # Save/update album entry (defaults to incomplete)

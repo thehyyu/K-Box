@@ -105,3 +105,5 @@ def detect_binary_path(binary_name: str) -> str:
 
 FFMPEG_PATH = detect_binary_path("ffmpeg")
 FFPROBE_PATH = detect_binary_path("ffprobe")
+OUTPUT_EXTENSION = ".avi"
+

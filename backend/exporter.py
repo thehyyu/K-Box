@@ -125,15 +125,22 @@ def run_export_thread(song_ids: List[str], usb_path: str, wipe_first: bool, nami
                 for song in db_songs:
                     artist = song.get("artist", "").strip()
                     title = song.get("title", "").strip()
+                    rel_path = song.get("file_path", "")
+                    ext = Path(rel_path).suffix.lower() if rel_path else ".mp4"
                     if artist:
+                        db_filenames.add(f"{artist} - {title}{ext}".lower())
+                        # Also add fallback just in case
                         db_filenames.add(f"{artist} - {title}.mp4".lower())
+                        db_filenames.add(f"{artist} - {title}.avi".lower())
+                    db_filenames.add(f"{title}{ext}".lower())
                     db_filenames.add(f"{title}.mp4".lower())
+                    db_filenames.add(f"{title}.avi".lower())
                 
                 # Scan root directory for files to delete
                 for item in usb_root.iterdir():
                     if item.is_file():
-                        # Delete if it matches KTV code (e.g. 1001 - Title.mp4)
-                        is_ktv_pattern = re.match(r'^\d{4} - .+\.mp4$', item.name, re.IGNORECASE)
+                        # Delete if it matches KTV code (e.g. 1001 - Title.mp4 or 1001 - Title.avi)
+                        is_ktv_pattern = re.match(r'^\d{4} - .+\.(mp4|avi)$', item.name, re.IGNORECASE)
                         # Delete if it matches one of our DB song names
                         is_db_name = item.name.lower() in db_filenames
                         

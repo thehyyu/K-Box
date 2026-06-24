@@ -204,7 +204,8 @@ class Database:
                 clean_title = re.sub(r'[\\/*?:"<>|]', "", title.strip()).strip()
                 if not clean_title:
                     clean_title = f"Track_{track_num:02d}"
-                dest_filename = f"T{track_num:02d}_{clean_title}.mp4"
+                old_ext = Path(old_rel_path).suffix if old_rel_path else ".avi"
+                dest_filename = f"T{track_num:02d}_{clean_title}{old_ext}"
                 new_rel_path = f"songs/{album_id}/{dest_filename}"
                 new_full_path = SONGS_DIR.parent / new_rel_path
                 
